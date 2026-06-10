@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCDA - Metody SAW i TOPSIS</title>
+</head>
+<body>
+<div class="container">
+    <h1>Wielokryterialne wspomaganie decyzji (MCDA)</h1>
+    <div class="sub">Metody SAW i TOPSIS</div>
+
+    <div class="method-selector">
+        <span>Wybierz metode obliczeniowa: </span>
+        <label>
+            <input type="radio" name="method" value="saw" checked> SAW (Simple Additive Weighting)
+        </label>
+        <label>
+            <input type="radio" name="method" value="topsis"> TOPSIS
+        </label>
+    </div>
+
+    <div class="sections">
+        <div class="card">
+            <h2>Warianty</h2>
+            <div id="variants-container" class="dynamic-list"></div>
+            <button type="button" id="add-variant" class="add-btn">+ Dodaj wariant</button>
+        </div>
+        <div class="card">
+            <h2>Kryteria</h2>
+            <div id="criteria-container" class="dynamic-list"></div>
+            <button type="button" id="add-criterion" class="add-btn">+ Dodaj kryterium</button>
+        </div>
+    </div>
+
+    <div class="card" style="margin-top: 20px;">
+        <h2>Macierz ocen (wartosci liczbowe)</h2>
+        <div id="matrix-wrapper" class="matrix-table"></div>
+        <div class="action-bar">
+            <button id="compute-btn" class="compute-btn">Oblicz ranking</button>
+        </div>
+    </div>
+
+    <div id="results" class="results" style="display: none;">
+        <h3>Ranking wariantów</h3>
+        <div id="ranking-list"></div>
+    </div>
+    <footer>UWAGA: Po kliknieciu "Oblicz ranking" wagi zostana automatycznie znormalizowane do sumy 1. Dla SAW - normalizacja liniowa, dla TOPSIS - normalizacja euklidesowa.</footer>
+</div>
+
+<script>
+    let variants = ["Laptop A", "Laptop B", "Laptop C"];
+    let criteria = [
+        { name: "Cena", weight: 0.4, type: "cost" },
+        { name: "Wydajnosc", weight: 0.35, type: "profit" },
+        { name: "Czas pracy baterii", weight: 0.25, type: "profit" }
+    ];
+    let matrix = [
+        [2500, 85, 8],
+        [3200, 90, 6],
+        [2800, 78, 9]
+    ];
+
+    const variantsDiv = document.getElementById('variants-container');
+    const criteriaDiv = document.getElementById('criteria-container');
+    const matrixWrapper = document.getElementById('matrix-wrapper');
+    const computeBtn = document.getElementById('compute-btn');
+    const resultsDiv = document.getElementById('results');
+    const rankingList = document.getElementById('ranking-list');
+
+    function renderVariants() {
+        variantsDiv.innerHTML = '';
+        variants.forEach((v, idx) => {
+            const div = document.createElement('div');
+            div.className = 'item-row';
+            div.innerHTML = `
+                <input type="text" value="${escapeHtml(v)}" data-idx="${idx}" class="variant-name" style="flex:2">
+                <button class="remove-btn" data-idx="${idx}" data-type="variant">Usun</button>
+            `;
+            variantsDiv.appendChild(div);
+        });
+        document.querySelectorAll('.variant-name').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const idx = parseInt(e.target.dataset.idx);
+                variants[idx] = e.target.value;
+                renderMatrix();
+            });
+        });
+        document.querySelectorAll('.remove-btn[data-type="variant"]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(btn.dataset.idx);
+                if (variants.length <= 1) {
+                    alert("Musi pozostac co najmniej jeden wariant.");
+                    return;
+                }
+                variants.splice(idx, 1);
+                matrix.splice(idx, 1);
+                renderVariants();
+                renderMatrix();
+            });
+        });
+    }
+
+    function renderCriteria() {
+        criteriaDiv.innerHTML = '';
+        criteria.forEach((c, idx) => {
+            const div = document.createElement('div');
+            div.className = 'item-row';
+            div.innerHTML = `
+                <input type="text" value="${escapeHtml(c.name)}" data-idx="${idx}" class="criterion-name" placeholder="Nazwa" style="flex:1">
+                <input type="number" step="0.01" value="${c.weight}" data-idx="${idx}" class="criterion-weight" placeholder="Waga" style="width:80px">
+                <select data-idx="${idx}" class="criterion-type">
+                    <option value="profit" ${c.type === 'profit' ? 'selected' : ''}>Zysk (wiecej lepiej)</option>
+                    <option value="cost" ${c.type === 'cost' ? 'selected' : ''}>Koszt (mniej lepiej)</option>
+                </select>
+                <button class="remove-btn" data-idx="${idx}" data-type="criterion">Usun</button>
+            `;
+            criteriaDiv.appendChild(div);
+        });
+        document.querySelectorAll('.criterion-name').forEach(input => {
+            input.addEventListener('change', (e) => {
+                criteria[e.target.dataset.idx].name = e.target.value;
+                renderMatrix();
+            });
+        });
+        document.querySelectorAll('.criterion-weight').forEach(input => {
+            input.addEventListener('change', (e) => {
+                let val = parseFloat(e.target.value);
+                if (isNaN(val)) val = 0;
+                criteria[e.target.dataset.idx].weight = val;
+            });
+        });
+        document.querySelectorAll('.criterion-type').forEach(select => {
+            select.addEventListener('change', (e) => {
+                criteria[e.target.dataset.idx].type = e.target.value;
+            });
+        });
+        document.querySelectorAll('.remove-btn[data-type="criterion"]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(btn.dataset.idx);
+                if (criteria.length <= 1) {
+                    alert("Musi pozostac co najmniej jedno kryterium.");
+                    return;
+                }
+                criteria.splice(idx, 1);
+                for (let i = 0; i < matrix.length; i++) {
+                    matrix[i].splice(idx, 1);
+                }
+                renderCriteria();
+                renderMatrix();
+            });
+        });
+    }
+
+    function renderMatrix() {
+        if (variants.length === 0 || criteria.length === 0) {
+            matrixWrapper.innerHTML = '<p>Dodaj warianty i kryteria, aby zobaczyc macierz.</p>';
+            return;
+        }
+        while (matrix.length < variants.length) {
+            matrix.push(new Array(criteria.length).fill(0));
+        }
+        while (matrix.length > variants.length) {
+            matrix.pop();
+        }
+        for (let i = 0; i < matrix.length; i++) {
+            while (matrix[i].length < criteria.length) matrix[i].push(0);
+            while (matrix[i].length > criteria.length) matrix[i].pop();
+        }
+
+        let html = '<table><thead><tr><th>Wariant / Kryterium</th>';
+        criteria.forEach(c => {
+            html += `<th>${escapeHtml(c.name)}<br><small>(${c.type === 'profit' ? 'zysk' : 'koszt'}) waga:${c.weight.toFixed(4)}</small></th>`;
+        });
+        html += '</tr></thead><tbody>';
+        for (let i = 0; i < variants.length; i++) {
+            html += `<tr><td><strong>${escapeHtml(variants[i])}</strong></td>`;
+            for (let j = 0; j < criteria.length; j++) {
+                html += `<td><input type="number" step="any" value="${matrix[i][j]}" class="matrix-input" data-row="${i}" data-col="${j}"></td>`;
+            }
+            html += '</tr>';
+        }
+        html += '</tbody></table>';
+        matrixWrapper.innerHTML = html;
+
+        document.querySelectorAll('.matrix-input').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const row = parseInt(e.target.dataset.row);
+                const col = parseInt(e.target.dataset.col);
+                let val = parseFloat(e.target.value);
+                if (isNaN(val)) val = 0;
+                matrix[row][col] = val;
+            });
+        });
+    }
+
+    function escapeHtml(str) {
+        if (!str) return '';
+        return str.replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+
+    // Funkcja normalizująca wagi do sumy 1 i aktualizująca interfejs
+    function normalizeWeightsAndUpdate() {
+        let sum = 0;
+        for (let c of criteria) sum += c.weight;
+        if (sum === 0) return;
+        for (let c of criteria) {
+            c.weight = c.weight / sum;
+        }
+        // Aktualizacja pól input z wagami
+        document.querySelectorAll('.criterion-weight').forEach(inp => {
+            const idx = parseInt(inp.dataset.idx);
+            inp.value = criteria[idx].weight;
+        });
+        // Odświeżenie tabeli (nagłówki z nowymi wagami)
+        renderMatrix();
+    }
+
+    document.getElementById('add-variant').addEventListener('click', () => {
+        const newName = `Wariant ${variants.length + 1}`;
+        variants.push(newName);
+        matrix.push(new Array(criteria.length).fill(0));
+        renderVariants();
+        renderMatrix();
+    });
+
+    document.getElementById('add-criterion').addEventListener('click', () => {
+        const newCriterion = { name: `Kryterium ${criteria.length + 1}`, weight: 0.5, type: 'profit' };
+        criteria.push(newCriterion);
+        for (let i = 0; i < matrix.length; i++) {
+            matrix[i].push(0);
+        }
+        renderCriteria();
+        renderMatrix();
+    });
+
+    computeBtn.addEventListener('click', async () => {
+        // Zbieranie danych z UI do tablic (stan)
+        document.querySelectorAll('.variant-name').forEach(inp => {
+            const idx = parseInt(inp.dataset.idx);
+            variants[idx] = inp.value;
+        });
+        document.querySelectorAll('.criterion-name').forEach(inp => {
+            const idx = parseInt(inp.dataset.idx);
+            criteria[idx].name = inp.value;
+        });
+        document.querySelectorAll('.criterion-weight').forEach(inp => {
+            const idx = parseInt(inp.dataset.idx);
+            criteria[idx].weight = parseFloat(inp.value) || 0;
+        });
+        document.querySelectorAll('.criterion-type').forEach(sel => {
+            const idx = parseInt(sel.dataset.idx);
+            criteria[idx].type = sel.value;
+        });
+
+        // Normalizacja wag do sumy 1 (aktualizuje zarówno tablicę criteria, jak i pola input oraz nagłówki tabeli)
+        normalizeWeightsAndUpdate();
+
+        const methodElem = document.querySelector('input[name="method"]:checked');
+        const method = methodElem ? methodElem.value : 'saw';
+
+        const payload = { variants, criteria, matrix, method };
+        try {
+            const response = await fetch('/compute', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (data.error) {
+                alert("Blad: " + data.error);
+                return;
+            }
+            rankingList.innerHTML = '';
+            data.ranking.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'rank-item';
+                div.innerHTML = `
+                    <div><span class="rank-number">#${item.rank}</span> <strong>${escapeHtml(item.name)}</strong></div>
+                    <div>Wynik: ${item.score}</div>
+                `;
+                rankingList.appendChild(div);
+            });
+            resultsDiv.style.display = 'block';
+        } catch (err) {
+            alert("Blad polaczenia z serwerem: " + err.message);
+        }
+    });
+
+    renderVariants();
+    renderCriteria();
+    renderMatrix();
+</script>
+<style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 20px 30px;
+        }
+        h1 {
+            text-align: center;
+            color: #1e3c72;
+        }
+        .sub {
+            text-align: center;
+            color: #2a5298;
+            margin-bottom: 20px;
+        }
+        .method-selector {
+            text-align: center;
+            margin: 15px 0 25px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 12px;
+        }
+        .method-selector label {
+            font-weight: bold;
+            margin: 0 15px;
+        }
+        .sections {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+        }
+        .card {
+            flex: 1;
+            min-width: 280px;
+            background: #f9fafc;
+            border-radius: 12px;
+            padding: 15px 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .card h2 {
+            margin-top: 0;
+            font-size: 1.4rem;
+            border-bottom: 2px solid #2a5298;
+            display: inline-block;
+            margin-bottom: 15px;
+        }
+        input, select, button {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 1rem;
+        }
+        .dynamic-list {
+            margin-top: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .item-row {
+            background: white;
+            margin: 8px 0;
+            padding: 8px 10px;
+            border-radius: 8px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .item-row input, .item-row select {
+            flex: 1;
+            min-width: 80px;
+        }
+        button {
+            background: #2a5298;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        button:hover {
+            background: #1e3c72;
+        }
+        .remove-btn {
+            background: #dc3545;
+            padding: 6px 10px;
+        }
+        .remove-btn:hover {
+            background: #b02a37;
+        }
+        .add-btn {
+            background: #28a745;
+            margin-top: 10px;
+            width: 100%;
+        }
+        .add-btn:hover {
+            background: #218838;
+        }
+        .matrix-table {
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background: #e9ecef;
+        }
+        input.matrix-input {
+            width: 100px;
+            text-align: center;
+        }
+        .action-bar {
+            text-align: center;
+            margin: 25px 0 20px;
+        }
+        .compute-btn {
+            background: #1e7e34;
+            font-size: 1.2rem;
+            padding: 12px 30px;
+        }
+        .results {
+            background: #e9f7ef;
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .results h3 {
+            margin-top: 0;
+        }
+        .rank-item {
+            background: white;
+            margin: 10px 0;
+            padding: 10px 15px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 5px solid #28a745;
+        }
+        .rank-number {
+            font-weight: bold;
+            background: #2a5298;
+            color: white;
+            border-radius: 20px;
+            padding: 4px 12px;
+        }
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.85rem;
+            color: gray;
+        }
+    </style>
+</body>
+</html>
