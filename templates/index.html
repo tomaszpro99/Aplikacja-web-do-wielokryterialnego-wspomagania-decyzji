@@ -3,21 +3,240 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MCDA - Metody SAW i TOPSIS</title>
+    <title>MCDA - 5 metod: SAW, TOPSIS, VIKOR, COPRAS, ELECTRE</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        body {
+            background: #f0f2f5;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 20px 30px;
+        }
+        h1 {
+            text-align: center;
+            color: #1e3c72;
+        }
+        .sub {
+            text-align: center;
+            color: #2a5298;
+            margin-bottom: 20px;
+        }
+        .method-selector {
+            text-align: center;
+            margin: 15px 0 25px;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 12px;
+        }
+        .method-selector label {
+            font-weight: bold;
+            margin: 0 10px;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .method-selector input[type="radio"] {
+            margin-right: 5px;
+        }
+        .method-params {
+            margin-top: 10px;
+            padding: 10px;
+            background: #dee2e6;
+            border-radius: 8px;
+            display: none;
+        }
+        .method-params.active {
+            display: block;
+        }
+        .method-params label {
+            margin: 0 10px;
+            font-weight: normal;
+        }
+        .method-params input {
+            width: 80px;
+            padding: 4px 8px;
+        }
+        .sections {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+        }
+        .card {
+            flex: 1;
+            min-width: 280px;
+            background: #f9fafc;
+            border-radius: 12px;
+            padding: 15px 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .card h2 {
+            margin-top: 0;
+            font-size: 1.4rem;
+            border-bottom: 2px solid #2a5298;
+            display: inline-block;
+            margin-bottom: 15px;
+        }
+        input, select, button {
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 1rem;
+        }
+        .dynamic-list {
+            margin-top: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .item-row {
+            background: white;
+            margin: 8px 0;
+            padding: 8px 10px;
+            border-radius: 8px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .item-row input, .item-row select {
+            flex: 1;
+            min-width: 80px;
+        }
+        button {
+            background: #2a5298;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        button:hover {
+            background: #1e3c72;
+        }
+        .remove-btn {
+            background: #dc3545;
+            padding: 6px 10px;
+        }
+        .remove-btn:hover {
+            background: #b02a37;
+        }
+        .add-btn {
+            background: #28a745;
+            margin-top: 10px;
+            width: 100%;
+        }
+        .add-btn:hover {
+            background: #218838;
+        }
+        .matrix-table {
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background: #e9ecef;
+        }
+        input.matrix-input {
+            width: 100px;
+            text-align: center;
+        }
+        .action-bar {
+            text-align: center;
+            margin: 25px 0 20px;
+        }
+        .compute-btn {
+            background: #1e7e34;
+            font-size: 1.2rem;
+            padding: 12px 30px;
+        }
+        .results {
+            background: #e9f7ef;
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .results h3 {
+            margin-top: 0;
+        }
+        .rank-item {
+            background: white;
+            margin: 10px 0;
+            padding: 10px 15px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 5px solid #28a745;
+        }
+        .rank-number {
+            font-weight: bold;
+            background: #2a5298;
+            color: white;
+            border-radius: 20px;
+            padding: 4px 12px;
+        }
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.85rem;
+            color: gray;
+        }
+    </style>
 </head>
 <body>
 <div class="container">
     <h1>Wielokryterialne wspomaganie decyzji (MCDA)</h1>
-    <div class="sub">Metody SAW i TOPSIS</div>
+    <div class="sub">Metody: SAW, TOPSIS, VIKOR, COPRAS, ELECTRE I</div>
 
     <div class="method-selector">
-        <span>Wybierz metode obliczeniowa: </span>
-        <label>
-            <input type="radio" name="method" value="saw" checked> SAW (Simple Additive Weighting)
-        </label>
-        <label>
-            <input type="radio" name="method" value="topsis"> TOPSIS
-        </label>
+        <div>
+            <label>
+                <input type="radio" name="method" value="saw" checked> SAW
+            </label>
+            <label>
+                <input type="radio" name="method" value="topsis"> TOPSIS
+            </label>
+            <label>
+                <input type="radio" name="method" value="vikor"> VIKOR
+            </label>
+            <label>
+                <input type="radio" name="method" value="copras"> COPRAS
+            </label>
+            <label>
+                <input type="radio" name="method" value="electre"> ELECTRE I
+            </label>
+        </div>
+        <div id="vikor-params" class="method-params">
+            <label>Parametr v (strategia):
+                <input type="number" id="vikor-v" step="0.1" min="0" max="1" value="0.5">
+            </label>
+            <small>(0 - maksymalny żal, 1 - maksymalna użyteczność)</small>
+        </div>
+        <div id="electre-params" class="method-params">
+            <label>Próg zgodności:
+                <input type="number" id="electre-concordance" step="0.05" min="0" max="1" value="0.6">
+            </label>
+            <label>Próg niezgodności:
+                <input type="number" id="electre-discordance" step="0.05" min="0" max="1" value="0.4">
+            </label>
+        </div>
     </div>
 
     <div class="sections">
@@ -34,7 +253,7 @@
     </div>
 
     <div class="card" style="margin-top: 20px;">
-        <h2>Macierz ocen (wartosci liczbowe)</h2>
+        <h2>Macierz ocen (wartości liczbowe)</h2>
         <div id="matrix-wrapper" class="matrix-table"></div>
         <div class="action-bar">
             <button id="compute-btn" class="compute-btn">Oblicz ranking</button>
@@ -45,7 +264,10 @@
         <h3>Ranking wariantów</h3>
         <div id="ranking-list"></div>
     </div>
-    <footer>UWAGA: Po kliknieciu "Oblicz ranking" wagi zostana automatycznie znormalizowane do sumy 1. Dla SAW - normalizacja liniowa, dla TOPSIS - normalizacja euklidesowa.</footer>
+    <footer>
+        UWAGA: Wagi są automatycznie normalizowane do sumy 1. Dla SAW - normalizacja liniowa, TOPSIS - euklidesowa,<br>
+        VIKOR - metoda kompromisowa (wynik 1-Q), COPRAS - proporcjonalna ocena, ELECTRE I - relacja przewyższania (wersja uproszczona).
+    </footer>
 </div>
 
 <script>
@@ -67,6 +289,19 @@
     const computeBtn = document.getElementById('compute-btn');
     const resultsDiv = document.getElementById('results');
     const rankingList = document.getElementById('ranking-list');
+
+    // Obsługa pokazywania parametrów dla wybranej metody
+    document.querySelectorAll('input[name="method"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            document.getElementById('vikor-params').classList.remove('active');
+            document.getElementById('electre-params').classList.remove('active');
+            if (this.value === 'vikor') {
+                document.getElementById('vikor-params').classList.add('active');
+            } else if (this.value === 'electre') {
+                document.getElementById('electre-params').classList.add('active');
+            }
+        });
+    });
 
     function renderVariants() {
         variantsDiv.innerHTML = '';
@@ -204,7 +439,6 @@
         });
     }
 
-    // Funkcja normalizująca wagi do sumy 1 i aktualizująca interfejs
     function normalizeWeightsAndUpdate() {
         let sum = 0;
         for (let c of criteria) sum += c.weight;
@@ -212,12 +446,10 @@
         for (let c of criteria) {
             c.weight = c.weight / sum;
         }
-        // Aktualizacja pól input z wagami
         document.querySelectorAll('.criterion-weight').forEach(inp => {
             const idx = parseInt(inp.dataset.idx);
             inp.value = criteria[idx].weight;
         });
-        // Odświeżenie tabeli (nagłówki z nowymi wagami)
         renderMatrix();
     }
 
@@ -240,7 +472,6 @@
     });
 
     computeBtn.addEventListener('click', async () => {
-        // Zbieranie danych z UI do tablic (stan)
         document.querySelectorAll('.variant-name').forEach(inp => {
             const idx = parseInt(inp.dataset.idx);
             variants[idx] = inp.value;
@@ -258,13 +489,21 @@
             criteria[idx].type = sel.value;
         });
 
-        // Normalizacja wag do sumy 1 (aktualizuje zarówno tablicę criteria, jak i pola input oraz nagłówki tabeli)
         normalizeWeightsAndUpdate();
 
         const methodElem = document.querySelector('input[name="method"]:checked');
         const method = methodElem ? methodElem.value : 'saw';
 
         const payload = { variants, criteria, matrix, method };
+
+        if (method === 'vikor') {
+            payload.vikor_v = parseFloat(document.getElementById('vikor-v').value) || 0.5;
+        }
+        if (method === 'electre') {
+            payload.electre_concordance = parseFloat(document.getElementById('electre-concordance').value) || 0.6;
+            payload.electre_discordance = parseFloat(document.getElementById('electre-discordance').value) || 0.4;
+        }
+
         try {
             const response = await fetch('/compute', {
                 method: 'POST',
@@ -296,177 +535,5 @@
     renderCriteria();
     renderMatrix();
 </script>
-<style>
-        * {
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-        body {
-            background: #f0f2f5;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            max-width: 1400px;
-            margin: auto;
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            padding: 20px 30px;
-        }
-        h1 {
-            text-align: center;
-            color: #1e3c72;
-        }
-        .sub {
-            text-align: center;
-            color: #2a5298;
-            margin-bottom: 20px;
-        }
-        .method-selector {
-            text-align: center;
-            margin: 15px 0 25px;
-            padding: 10px;
-            background: #e9ecef;
-            border-radius: 12px;
-        }
-        .method-selector label {
-            font-weight: bold;
-            margin: 0 15px;
-        }
-        .sections {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 30px;
-        }
-        .card {
-            flex: 1;
-            min-width: 280px;
-            background: #f9fafc;
-            border-radius: 12px;
-            padding: 15px 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-        .card h2 {
-            margin-top: 0;
-            font-size: 1.4rem;
-            border-bottom: 2px solid #2a5298;
-            display: inline-block;
-            margin-bottom: 15px;
-        }
-        input, select, button {
-            padding: 8px 12px;
-            border-radius: 8px;
-            border: 1px solid #ccc;
-            font-size: 1rem;
-        }
-        .dynamic-list {
-            margin-top: 15px;
-            max-height: 300px;
-            overflow-y: auto;
-        }
-        .item-row {
-            background: white;
-            margin: 8px 0;
-            padding: 8px 10px;
-            border-radius: 8px;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .item-row input, .item-row select {
-            flex: 1;
-            min-width: 80px;
-        }
-        button {
-            background: #2a5298;
-            color: white;
-            border: none;
-            cursor: pointer;
-            font-weight: bold;
-            transition: 0.2s;
-        }
-        button:hover {
-            background: #1e3c72;
-        }
-        .remove-btn {
-            background: #dc3545;
-            padding: 6px 10px;
-        }
-        .remove-btn:hover {
-            background: #b02a37;
-        }
-        .add-btn {
-            background: #28a745;
-            margin-top: 10px;
-            width: 100%;
-        }
-        .add-btn:hover {
-            background: #218838;
-        }
-        .matrix-table {
-            overflow-x: auto;
-            margin: 20px 0;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 10px;
-            text-align: center;
-        }
-        th {
-            background: #e9ecef;
-        }
-        input.matrix-input {
-            width: 100px;
-            text-align: center;
-        }
-        .action-bar {
-            text-align: center;
-            margin: 25px 0 20px;
-        }
-        .compute-btn {
-            background: #1e7e34;
-            font-size: 1.2rem;
-            padding: 12px 30px;
-        }
-        .results {
-            background: #e9f7ef;
-            border-radius: 12px;
-            padding: 15px;
-            margin-top: 20px;
-        }
-        .results h3 {
-            margin-top: 0;
-        }
-        .rank-item {
-            background: white;
-            margin: 10px 0;
-            padding: 10px 15px;
-            border-radius: 10px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-left: 5px solid #28a745;
-        }
-        .rank-number {
-            font-weight: bold;
-            background: #2a5298;
-            color: white;
-            border-radius: 20px;
-            padding: 4px 12px;
-        }
-        footer {
-            text-align: center;
-            margin-top: 20px;
-            font-size: 0.85rem;
-            color: gray;
-        }
-    </style>
 </body>
 </html>
